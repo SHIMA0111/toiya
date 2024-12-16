@@ -1,0 +1,10 @@
+[package]
+name = "toiya"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrow = "53"
+arrow-csv = "53"
+calamine = "0.26"
+
