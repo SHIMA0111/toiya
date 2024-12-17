@@ -1,11 +1,11 @@
-#include "date_calc.hpp"
+#include "reader_sample.hpp"
 
 #include <iostream>
 
 int main() {
-//    runReadAndPrintDataFromExistingHyperFile("/Users/seigooshima/git/toiya/src/toiya-hyperapi/src/data/train.hyper");
-//    createHyperFileFromCsv("/Users/seigooshima/git/toiya/src/toiya-hyperapi/src/data/train.csv", "/Users/seigooshima/git/toiya/src/toiya-hyperapi/src/data/train_cxx.hyper");
+    Result result = read_from_hyper_query("/Users/seigooshima/git/toiya/src/toiya-hyperapi/src/data/train.hyper",
+                                          "SELECT * FROM spaceship", 5);
+    std::cout << "result.data: " << result.data << std::endl;
 
-    std::cout << DateCalc::calculateDaysSinceAD(1970, 1, 1) << std::endl;
     return 0;
 }

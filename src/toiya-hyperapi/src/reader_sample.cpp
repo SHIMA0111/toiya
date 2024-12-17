@@ -6,6 +6,7 @@
 
 #include <hyperapi/hyperapi.hpp>
 #include <nanoarrow/nanoarrow.hpp>
+#include <thread>
 
 namespace gsl {
     template <typename T> using owner = T;
@@ -13,7 +14,7 @@ namespace gsl {
 
 class ReadHelper {
 public:
-    ReadHelper(struct ArrowArray* array) : array_(array) {}
+    explicit ReadHelper(struct ArrowArray* array) : array_(array) {}
     ReadHelper(const ReadHelper&) = delete;
     ReadHelper &operator=(ReadHelper &) = delete;
     ReadHelper(ReadHelper &&) = delete;
@@ -459,9 +460,9 @@ static const auto GetSchema = [](struct ArrowArrayStream* stream, struct ArrowSc
     const std::span children = {schema -> children, static_cast<size_t>(schema -> n_children)};
 
     for (size_t i = 0; i < column_count; i++) {
-        const auto column = resultSchema.getColumn(i);
+        const auto& column = resultSchema.getColumn(i);
         auto name = column.getName().getUnescaped();
-        const auto &[elem, did_insert] = name_counter.emplace(name, 0);
+        const auto& [elem, did_insert] = name_counter.emplace(name, 0);
 
         if (!did_insert) {
             name += "_" + std::to_string(elem -> second);
@@ -551,8 +552,9 @@ static const auto GetNext = [](struct ArrowArrayStream* stream, struct ArrowArra
 
 auto read_from_hyper_query(const std::string& path,
                            const std::string& query,
-                           std::unordered_map<std::string, std::string>&& process_params,
                            size_t chunk_size)-> Result {
+    std::unordered_map<std::string, std::string> process_params = {};
+
     if (!process_params.count("log_config")) {
         process_params["log_config"] = "";
     } else {
@@ -562,40 +564,45 @@ auto read_from_hyper_query(const std::string& path,
     if (!process_params.count("default_database_version"))
         process_params["default_database_version"] = "2";
 
-    const hyperapi::HyperProcess hyper{
-        hyperapi::Telemetry::DoNotSendUsageDataToTableau,
-        "",
-        process_params};
-    hyperapi::Connection connection(hyper.getEndpoint(), path);
+    {
+        static const hyperapi::HyperProcess hyper{
+            hyperapi::Telemetry::DoNotSendUsageDataToTableau,
+            "",
+            process_params};
 
-    if (chunk_size) {
-        hyper_set_chunked_mode(hyperapi::internal::getHandle(connection), true);
-        hyper_set_chunk_size(hyperapi::internal::getHandle(connection), chunk_size);
+        {
+            hyperapi::Connection connection(hyper.getEndpoint(), path);
+
+            if (chunk_size) {
+                hyper_set_chunked_mode(hyperapi::internal::getHandle(connection), true);
+                hyper_set_chunk_size(hyperapi::internal::getHandle(connection), chunk_size);
+            }
+
+            auto hyperResult = std::make_unique<hyperapi::Result>(connection.executeQuery(query));
+
+            auto iter = std::make_unique<hyperapi::ChunkedResultIterator>(*hyperResult, hyperapi::IteratorBeginTag{});
+
+            auto private_data = gsl::owner<HyperResultIteratorPrivate*>(
+                new HyperResultIteratorPrivate{std::move(hyperResult), std::move(iter)});
+
+            auto stream = gsl::owner<struct ArrowArrayStream*>(new struct ArrowArrayStream);
+            stream -> private_data = private_data;
+            stream -> get_next = GetNext;
+            stream -> get_schema = GetSchema;
+            stream -> get_last_error = [](struct ArrowArrayStream* stream) {
+                auto private_data = static_cast<HyperResultIteratorPrivate*>(stream->private_data);
+                return static_cast<const char*>(private_data -> error_.message);
+            };
+
+            stream -> release = [](struct ArrowArrayStream* stream) {
+                auto private_data = static_cast<gsl::owner<HyperResultIteratorPrivate*>>(
+                    stream -> private_data);
+                delete private_data;
+                stream -> release = nullptr;
+            };
+
+            Result result{stream, "arrow_array_stream", &ReleaseArrowStream};
+            return result;
+        }
     }
-
-    auto hyperResult = std::make_unique<hyperapi::Result>(connection.executeQuery(query));
-
-    auto iter = std::make_unique<hyperapi::ChunkedResultIterator>(*hyperResult, hyperapi::IteratorBeginTag{});
-
-    auto private_data = gsl::owner<HyperResultIteratorPrivate*>(
-        new HyperResultIteratorPrivate{std::move(hyperResult), std::move(iter)});
-
-    auto stream = gsl::owner<struct ArrowArrayStream*>(new struct ArrowArrayStream);
-    stream -> private_data = private_data;
-    stream -> get_next = GetNext;
-    stream -> get_schema = GetSchema;
-    stream -> get_last_error = [](struct ArrowArrayStream* stream) {
-        auto private_data = static_cast<HyperResultIteratorPrivate*>(stream->private_data);
-        return static_cast<const char*>(private_data -> error_.message);
-    };
-
-    stream -> release = [](struct ArrowArrayStream* stream) {
-        auto private_data = static_cast<gsl::owner<HyperResultIteratorPrivate*>>(
-            stream -> private_data);
-        delete private_data;
-        stream -> release = nullptr;
-    };
-
-    Result result{stream, "arrow_array_stream", &ReleaseArrowStream};
-    return result;
 }

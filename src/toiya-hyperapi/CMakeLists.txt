@@ -1,23 +1,20 @@
-set(TOIYA_CXX_SOURCES src/date_calc.cpp)
+# ビルド時の出力先を明示的に指定
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+set(TOIYA_CXX_SOURCES src/reader_sample.cpp)
 
 add_library(
-    libtoiya
+    toiya
     SHARED
     ${TOIYA_CXX_SOURCES}
 )
-target_link_libraries(libtoiya
+target_link_libraries(toiya
     PRIVATE Tableau::tableauhyperapi-cxx
     PRIVATE nanoarrow
 )
 set_target_properties(nanoarrow
     PROPERTIES POSITION_INDEPENDENT_CODE
     ON
-)
-
-add_executable(toiya-hyperapi src/main.cpp)
-target_link_libraries(toiya-hyperapi
-    PRIVATE libtoiya
-    PRIVATE Tableau::tableauhyperapi-cxx
 )
 
 if (WIN32)
@@ -29,7 +26,7 @@ elseif (APPLE)
     set(HYPERAPI_LIB_NAME "libtableauhyperapi.dylib")
     set(HYPERAPI_BIN_LOC "lib/hyper")
     set_target_properties(
-        libtoiya
+        toiya
         PROPERTIES
         INSTALL_RPATH "@loader_path"
     )
@@ -38,13 +35,13 @@ else ()
     set(HYPERAPI_LIB_NAME "libtableauhyperapi.so")
     set(HYPERAPI_BIN_LOC "lib/hyper")
     set_target_properties(
-        libtoiya
+        toiya
         PROPERTIES
         INSTALL_RPATH "$ORIGIN"
     )
 endif ()
 
-install(TARGETS libtoiya LIBRARY DESTINATION lib/)
+install(TARGETS toiya LIBRARY DESTINATION lib/)
 install(FILES ${tableauhyperapi-cxx_SOURCE_DIR}/${HYPERAPI_LIB_DIR}/${HYPERAPI_LIB_NAME} DESTINATION lib/)
 install(DIRECTORY "${tableauhyperapi-cxx_SOURCE_DIR}/${HYPERAPI_BIN_LOC}/"
         DESTINATION lib/hyper
