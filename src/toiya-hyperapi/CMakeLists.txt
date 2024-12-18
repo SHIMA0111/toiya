@@ -1,7 +1,7 @@
 # ビルド時の出力先を明示的に指定
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-set(TOIYA_CXX_SOURCES src/reader_sample.cpp)
+set(TOIYA_CXX_SOURCES src/reader_sample.cpp src/hyper_reader.cpp)
 
 add_library(
     toiya

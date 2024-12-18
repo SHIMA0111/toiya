@@ -41,7 +41,4 @@ fn main() {
     println!("cargo:rerun-if-changed=src/toiya-hyperapi/src/reader_sample.cpp");
     println!("cargo:rerun-if-changed=src/toiya-hyperapi/src/reader_sample.hpp");
     println!("cargo:rerun-if-changed=src/toiya-hyperapi/CMakeLists.txt");
-
-    println!("cargo:rustc-link-arg=-rpath");
-    println!("cargo:rustc-link-arg=@executable_path/../lib")
 }
