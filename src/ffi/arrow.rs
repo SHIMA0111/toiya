@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use arrow::array::{Array, RecordBatch, RecordBatchReader};
+use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::compute::concat_batches;
 use arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 

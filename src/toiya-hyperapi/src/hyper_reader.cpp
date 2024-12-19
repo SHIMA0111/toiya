@@ -168,3 +168,16 @@ template <bool TimeZone> class DateTimeHyperToArrow : public HyperToArrow {
         GetMutableArray()->length++;
     }
 };
+
+class TimeHyperToArrow : public HyperToArrow {
+    using HyperToArrow::HyperToArrow;
+
+    void LoadValue(const hyperapi::Value& value) override {
+        auto time = value.get<hyperapi::Time>();
+        auto time_usec = static_cast<int64_t>(time.getRaw());
+
+        if (ArrowArrayAppendInt(GetMutableArray(), time_usec)) {
+            throw_toiya_hyper_api_error(ToiyaHyperApiError::APPEND_FAILED, "time64");
+        }
+    }
+};
